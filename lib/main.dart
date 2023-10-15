@@ -121,9 +121,91 @@ class _AudioPlayerState extends State<AudioPlayer> {
                     ),
                   ),
                   const Spacer(),
-                  Slider(
-                    value: value,
-                    onChanged: (_) {},
+                  SizedBox(
+                    height: 14,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.4),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 7),
+                            child: Row(
+                              children: [
+                                const SizedBox(
+                                  width: 7,
+                                  height: 2,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: SliderTheme(
+                                    data: SliderThemeData(
+                                      trackHeight: 2,
+                                      activeTrackColor: Colors.white,
+                                      inactiveTrackColor:
+                                          Colors.white.withOpacity(0),
+                                      thumbColor: Colors.white,
+                                      overlayColor:
+                                          Colors.white.withOpacity(0.08),
+                                      thumbShape: const RoundSliderThumbShape(
+                                        enabledThumbRadius: 7,
+                                        disabledThumbRadius: 7,
+                                        elevation: 0,
+                                        pressedElevation: 0,
+                                      ),
+                                      trackShape: CustomTrackShape(),
+                                    ),
+                                    child: Slider(
+                                      value: value,
+                                      onChanged: (val) {
+                                        setState(() {
+                                          value = val;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '12:15',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          height: 18 / 14,
+                          color: Colors.white.withOpacity(0.65),
+                        ),
+                      ),
+                      Text(
+                        '30:22',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          height: 18 / 14,
+                          color: Colors.white.withOpacity(0.65),
+                        ),
+                      ),
+                    ],
                   ),
                   const Spacer(),
                 ],
@@ -133,5 +215,47 @@ class _AudioPlayerState extends State<AudioPlayer> {
         ],
       ),
     );
+  }
+}
+
+class CustomTrackShape extends RoundedRectSliderTrackShape {
+  @override
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    const trackHeight = 2.0;
+    final trackLeft = offset.dx;
+    final trackTop = offset.dy + (parentBox.size.height - trackHeight) / 2;
+    final trackWidth = parentBox.size.width;
+    return Rect.fromLTWH(trackLeft, trackTop, trackWidth, trackHeight);
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isDiscrete = false,
+    bool isEnabled = false,
+    double additionalActiveTrackHeight = 2,
+  }) {
+    super.paint(context, offset,
+        parentBox: parentBox,
+        sliderTheme: sliderTheme,
+        enableAnimation: enableAnimation,
+        textDirection: textDirection,
+        thumbCenter: thumbCenter,
+        isDiscrete: isDiscrete,
+        isEnabled: isEnabled,
+        additionalActiveTrackHeight: 0);
   }
 }
