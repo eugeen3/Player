@@ -17,11 +17,13 @@ class MyApp extends StatelessWidget {
         auidoUrl:
             'https://github.com/rafaelreis-hotmart/Audio-Sample-files/blob/master/sample2.mp3',
         title: 'Test audio',
-        imageUrl: 'https://www.w3schools.com/w3css/img_lights.jpg',
+        imageUrl:
+            'https://cdn3.vectorstock.com/i/1000x1000/70/87/abstract-polygonal-square-background-blue-vector-21357087.jpg',
         onFavouriteTap: () {},
         onRepeatTap: () {},
         onPlayTap: () {},
         onAudioEndTap: () {},
+        isFavourite: false,
       ),
     );
   }
@@ -37,6 +39,7 @@ class AudioPlayer extends StatefulWidget {
     required this.onRepeatTap,
     required this.onPlayTap,
     required this.onAudioEndTap,
+    required this.isFavourite,
   });
 
   final String auidoUrl;
@@ -46,13 +49,22 @@ class AudioPlayer extends StatefulWidget {
   final VoidCallback onRepeatTap;
   final VoidCallback onPlayTap;
   final VoidCallback onAudioEndTap;
+  final bool isFavourite;
 
   @override
   State<AudioPlayer> createState() => _AudioPlayerState();
 }
 
 class _AudioPlayerState extends State<AudioPlayer> {
-  double value = 0.44;
+  double value = 0;
+  late bool isFavourite;
+  bool repeat = false;
+
+  @override
+  void initState() {
+    isFavourite = widget.isFavourite;
+    super.initState();
+  }
 
   BorderRadius get imageRadius => const BorderRadius.all(
         Radius.circular(64),
@@ -206,6 +218,84 @@ class _AudioPlayerState extends State<AudioPlayer> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 36),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        SizedBox.square(
+                          dimension: 40,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                isFavourite = !isFavourite;
+                              });
+                            },
+                            child: Center(
+                              child: isFavourite
+                                  ? const Icon(
+                                      Icons.favorite,
+                                      color: Colors.white,
+                                    )
+                                  : const Icon(
+                                      Icons.favorite_outline,
+                                      color: Colors.white,
+                                    ),
+                            ),
+                          ),
+                        ),
+                        SizedBox.square(
+                          dimension: 40,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                repeat = !repeat;
+                              });
+                            },
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.4),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: repeat
+                                    ? SvgPicture.asset(
+                                        'assets/icons/repeat_on.svg')
+                                    : SvgPicture.asset(
+                                        'assets/icons/repeat_off.svg'),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox.square(
+                          dimension: 56,
+                        ),
+                        SizedBox.square(
+                          dimension: 40,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {});
+                            },
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.4),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: SvgPicture.asset(
+                                  'assets/icons/end_track.svg',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox.square(
+                          dimension: 40,
+                        ),
+                      ],
+                    ),
                   ),
                   const Spacer(),
                 ],
