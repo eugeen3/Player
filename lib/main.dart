@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:just_audio/just_audio.dart' as ap;
+import 'package:rxdart/rxdart.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,8 +16,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: AudioPlayer(
-        auidoUrl:
-            'https://github.com/rafaelreis-hotmart/Audio-Sample-files/blob/master/sample2.mp3',
+        auidoUrl: 'https://samplelib.com/lib/preview/mp3/sample-15s.mp3',
         title: 'Test audio',
         imageUrl:
             'https://cdn3.vectorstock.com/i/1000x1000/70/87/abstract-polygonal-square-background-blue-vector-21357087.jpg',
@@ -27,6 +28,16 @@ class MyApp extends StatelessWidget {
       ),
     );
   }
+}
+
+class PositionData {
+  final Duration position;
+  final Duration duration;
+
+  PositionData(
+    this.position,
+    this.duration,
+  );
 }
 
 class AudioPlayer extends StatefulWidget {
@@ -56,19 +67,36 @@ class AudioPlayer extends StatefulWidget {
 }
 
 class _AudioPlayerState extends State<AudioPlayer> {
-  double value = 0;
   late bool isFavourite;
   bool repeat = false;
-
-  @override
-  void initState() {
-    isFavourite = widget.isFavourite;
-    super.initState();
-  }
+  late ap.AudioPlayer _audioPlayer;
 
   BorderRadius get imageRadius => const BorderRadius.all(
         Radius.circular(64),
       );
+
+  Stream<PositionData> get _positionDataStream =>
+      Rx.combineLatest2<Duration, Duration?, PositionData>(
+        _audioPlayer.positionStream,
+        _audioPlayer.durationStream,
+        (position, duration) => PositionData(
+          position,
+          duration ?? Duration.zero,
+        ),
+      );
+
+  @override
+  void initState() {
+    isFavourite = widget.isFavourite;
+    _audioPlayer = ap.AudioPlayer()..setUrl(widget.auidoUrl);
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -179,12 +207,47 @@ class _AudioPlayerState extends State<AudioPlayer> {
                                       ),
                                       trackShape: CustomTrackShape(),
                                     ),
-                                    child: Slider(
-                                      value: value,
-                                      onChanged: (val) {
-                                        setState(() {
-                                          value = val;
-                                        });
+                                    child: StreamBuilder(
+                                      stream: _positionDataStream,
+                                      builder: (context, snapshot) {
+                                        final positionData = snapshot.data;
+                                        double sliderValue = 0;
+                                        if (positionData != null) {
+                                          if (positionData.duration !=
+                                              Duration.zero) {
+                                            sliderValue = positionData
+                                                    .position.inMilliseconds /
+                                                positionData
+                                                    .duration.inMilliseconds;
+                                          }
+                                        }
+
+                                        if (sliderValue > 1) {
+                                          sliderValue = 1;
+                                        }
+
+                                        return Slider(
+                                          value: sliderValue,
+                                          onChanged: (position) {
+                                            setState(() {
+                                              late Duration newPosition;
+                                              if (positionData != null) {
+                                                if (positionData.duration !=
+                                                    Duration.zero) {
+                                                  newPosition = Duration(
+                                                      milliseconds: (position *
+                                                              positionData
+                                                                  .duration
+                                                                  .inMilliseconds)
+                                                          .toInt());
+                                                }
+                                              } else {
+                                                newPosition = Duration.zero;
+                                              }
+                                              _audioPlayer.seek(newPosition);
+                                            });
+                                          },
+                                        );
                                       },
                                     ),
                                   ),
@@ -196,29 +259,37 @@ class _AudioPlayerState extends State<AudioPlayer> {
                       ],
                     ),
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '12:15',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          height: 18 / 14,
-                          color: Colors.white.withOpacity(0.65),
-                        ),
-                      ),
-                      Text(
-                        '30:22',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          height: 18 / 14,
-                          color: Colors.white.withOpacity(0.65),
-                        ),
-                      ),
-                    ],
-                  ),
+                  StreamBuilder(
+                      stream: _positionDataStream,
+                      builder: (context, snapshot) {
+                        final positionData = snapshot.data;
+
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _printDuration(
+                                  positionData?.position ?? Duration.zero),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                height: 18 / 14,
+                                color: Colors.white.withOpacity(0.65),
+                              ),
+                            ),
+                            Text(
+                              _printDuration(
+                                  positionData?.duration ?? Duration.zero),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                height: 18 / 14,
+                                color: Colors.white.withOpacity(0.65),
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
                   const SizedBox(height: 36),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -232,6 +303,7 @@ class _AudioPlayerState extends State<AudioPlayer> {
                               setState(() {
                                 isFavourite = !isFavourite;
                               });
+                              widget.onFavouriteTap();
                             },
                             child: Center(
                               child: isFavourite
@@ -253,6 +325,12 @@ class _AudioPlayerState extends State<AudioPlayer> {
                               setState(() {
                                 repeat = !repeat;
                               });
+                              if (repeat) {
+                                _audioPlayer.setLoopMode(ap.LoopMode.one);
+                              } else {
+                                _audioPlayer.setLoopMode(ap.LoopMode.off);
+                              }
+                              widget.onRepeatTap();
                             },
                             child: DecoratedBox(
                               decoration: BoxDecoration(
@@ -269,27 +347,70 @@ class _AudioPlayerState extends State<AudioPlayer> {
                             ),
                           ),
                         ),
-                        const SizedBox.square(
+                        SizedBox.square(
                           dimension: 56,
+                          child: StreamBuilder(
+                            stream: _audioPlayer.playerStateStream,
+                            builder: (context, snapshot) {
+                              final playerState = snapshot.data;
+                              final proccessingState =
+                                  playerState?.processingState;
+                              final isPlaying = playerState?.playing;
+                              if (!(isPlaying ?? false)) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    _audioPlayer.play();
+                                  },
+                                  child:
+                                      SvgPicture.asset('assets/icons/play.svg'),
+                                );
+                              } else if (proccessingState !=
+                                  ap.ProcessingState.completed) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    _audioPlayer.pause();
+                                  },
+                                  child: SvgPicture.asset(
+                                      'assets/icons/pause.svg'),
+                                );
+                              }
+                              return GestureDetector(
+                                onTap: () {
+                                  _audioPlayer.seek(Duration.zero);
+                                  _audioPlayer.play();
+                                },
+                                child:
+                                    SvgPicture.asset('assets/icons/play.svg'),
+                              );
+                            },
+                          ),
                         ),
                         SizedBox.square(
                           dimension: 40,
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {});
-                            },
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.4),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: SvgPicture.asset(
-                                  'assets/icons/end_track.svg',
-                                ),
-                              ),
-                            ),
-                          ),
+                          child: StreamBuilder(
+                              stream: _positionDataStream,
+                              builder: (context, snapshot) {
+                                final duration = snapshot.data?.duration;
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (duration != null) {
+                                      _audioPlayer.seek(duration);
+                                    }
+                                    widget.onAudioEndTap();
+                                  },
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.4),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Center(
+                                      child: SvgPicture.asset(
+                                        'assets/icons/end_track.svg',
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
                         ),
                         const SizedBox.square(
                           dimension: 40,
@@ -305,6 +426,13 @@ class _AudioPlayerState extends State<AudioPlayer> {
         ],
       ),
     );
+  }
+
+  String _printDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$twoDigitMinutes:$twoDigitSeconds";
   }
 }
 
