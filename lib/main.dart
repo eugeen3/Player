@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:just_audio/just_audio.dart' as ap;
+import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -23,8 +24,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: AudioPlayer(
-        auidoUrl: 'https://samplelib.com/lib/preview/mp3/sample-15s.mp3',
+      home: PlayerScreen(
+        auidoUrl:
+            'https://firebasestorage.googleapis.com/v0/b/test-d3b93.appspot.com/o/Blue%20Moon%20%20%20Frank%20Sinatra.mp3?alt=media&token=54e7d046-2c67-468e-b5ee-17eee27e83ea&_gl=1*1mp5mxf*_ga*MTkzMDUyNjQ5MS4xNjY4NjI1MTA5*_ga_CW55HF8NVT*MTY5NzQ3MTA5My4zNy4xLjE2OTc0NzEzODEuNjAuMC4w',
         title: 'Test audio',
         imageUrl:
             'https://cdn3.vectorstock.com/i/1000x1000/70/87/abstract-polygonal-square-background-blue-vector-21357087.jpg',
@@ -48,8 +50,8 @@ class PositionData {
   );
 }
 
-class AudioPlayer extends StatefulWidget {
-  const AudioPlayer({
+class PlayerScreen extends StatefulWidget {
+  const PlayerScreen({
     super.key,
     required this.auidoUrl,
     required this.title,
@@ -71,19 +73,15 @@ class AudioPlayer extends StatefulWidget {
   final bool isFavourite;
 
   @override
-  State<AudioPlayer> createState() => _AudioPlayerState();
+  State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _AudioPlayerState extends State<AudioPlayer> {
+class _PlayerScreenState extends State<PlayerScreen> {
   late bool isFavourite;
   bool repeat = false;
-  late ap.AudioPlayer _audioPlayer;
+  late AudioPlayer _audioPlayer;
 
-  late final _playlist;
-
-  BorderRadius get imageRadius => const BorderRadius.all(
-        Radius.circular(64),
-      );
+  late final AudioSource _playlist;
 
   Stream<PositionData> get _positionDataStream =>
       Rx.combineLatest2<Duration, Duration?, PositionData>(
@@ -93,16 +91,16 @@ class _AudioPlayerState extends State<AudioPlayer> {
           position,
           duration ?? Duration.zero,
         ),
-      );
+      ).asBroadcastStream();
 
   ValueNotifier<int> progressNotifier = ValueNotifier(0);
 
   @override
   void initState() {
     isFavourite = widget.isFavourite;
-    _audioPlayer = ap.AudioPlayer();
-    _playlist = ap.ConcatenatingAudioSource(children: [
-      ap.AudioSource.uri(
+    _audioPlayer = AudioPlayer();
+    _playlist = ConcatenatingAudioSource(children: [
+      AudioSource.uri(
         Uri.parse(widget.auidoUrl),
         tag: MediaItem(
           id: '0',
@@ -133,9 +131,14 @@ class _AudioPlayerState extends State<AudioPlayer> {
                 sigmaX: 10,
                 sigmaY: 10,
               ),
-              child: Image.network(
-                widget.imageUrl,
-                fit: BoxFit.fill,
+              child: Transform.scale(
+                scale: 1.2,
+                child: CachedNetworkImage(
+                  imageUrl: widget.imageUrl,
+                  fit: BoxFit.fill,
+                  placeholder: (context, url) =>
+                      ColoredBox(color: Colors.black.withOpacity(0.4)),
+                ),
               ),
             ),
           ),
@@ -148,172 +151,15 @@ class _AudioPlayerState extends State<AudioPlayer> {
                     height: MediaQuery.paddingOf(context).top,
                   ),
                   const SizedBox(height: 14),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: SvgPicture.asset('assets/icons/arrow_down.svg'),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox.square(
-                    dimension: 260,
-                    child: ClipRRect(
-                      borderRadius: imageRadius,
-                      child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(64),
-                          ),
-                          color: Color(0xFF260E49),
-                        ),
-                        child: Image.network(
-                          widget.imageUrl,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 24,
-                      height: 28 / 24,
-                      color: Colors.white,
-                    ),
+                  _ImageAndTitle(
+                    imageUrl: widget.imageUrl,
+                    title: widget.title,
                   ),
                   const Spacer(),
-                  SizedBox(
-                    height: 14,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.4),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 7),
-                            child: Row(
-                              children: [
-                                const SizedBox(
-                                  width: 7,
-                                  height: 2,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: SliderTheme(
-                                    data: SliderThemeData(
-                                      trackHeight: 2,
-                                      activeTrackColor: Colors.white,
-                                      inactiveTrackColor:
-                                          Colors.white.withOpacity(0),
-                                      thumbColor: Colors.white,
-                                      overlayColor:
-                                          Colors.white.withOpacity(0.08),
-                                      thumbShape: const RoundSliderThumbShape(
-                                        enabledThumbRadius: 7,
-                                        disabledThumbRadius: 7,
-                                        elevation: 0,
-                                        pressedElevation: 0,
-                                      ),
-                                      trackShape: CustomTrackShape(),
-                                    ),
-                                    child: StreamBuilder(
-                                      stream: _positionDataStream,
-                                      builder: (context, snapshot) {
-                                        final positionData = snapshot.data;
-                                        double sliderValue = 0;
-                                        if (positionData != null) {
-                                          if (positionData.duration !=
-                                              Duration.zero) {
-                                            sliderValue = positionData
-                                                    .position.inMilliseconds /
-                                                positionData
-                                                    .duration.inMilliseconds;
-                                          }
-                                        }
-
-                                        if (sliderValue > 1) {
-                                          sliderValue = 1;
-                                        }
-
-                                        return Slider(
-                                          value: sliderValue,
-                                          onChanged: (position) {
-                                            setState(() {
-                                              late Duration newPosition;
-                                              if (positionData != null) {
-                                                if (positionData.duration !=
-                                                    Duration.zero) {
-                                                  newPosition = Duration(
-                                                      milliseconds: (position *
-                                                              positionData
-                                                                  .duration
-                                                                  .inMilliseconds)
-                                                          .toInt());
-                                                }
-                                              } else {
-                                                newPosition = Duration.zero;
-                                              }
-                                              _audioPlayer.seek(newPosition);
-                                            });
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _PlayerSlider(
+                    positionDataStream: _positionDataStream,
+                    onSeekPlayer: _audioPlayer.seek,
                   ),
-                  StreamBuilder(
-                      stream: _positionDataStream,
-                      builder: (context, snapshot) {
-                        final positionData = snapshot.data;
-
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _printDuration(
-                                  positionData?.position ?? Duration.zero),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                                height: 18 / 14,
-                                color: Colors.white.withOpacity(0.65),
-                              ),
-                            ),
-                            Text(
-                              _printDuration(
-                                  positionData?.duration ?? Duration.zero),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                                height: 18 / 14,
-                                color: Colors.white.withOpacity(0.65),
-                              ),
-                            ),
-                          ],
-                        );
-                      }),
                   const SizedBox(height: 36),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -350,9 +196,9 @@ class _AudioPlayerState extends State<AudioPlayer> {
                                 repeat = !repeat;
                               });
                               if (repeat) {
-                                _audioPlayer.setLoopMode(ap.LoopMode.one);
+                                _audioPlayer.setLoopMode(LoopMode.one);
                               } else {
-                                _audioPlayer.setLoopMode(ap.LoopMode.off);
+                                _audioPlayer.setLoopMode(LoopMode.off);
                               }
                               widget.onRepeatTap();
                             },
@@ -389,7 +235,7 @@ class _AudioPlayerState extends State<AudioPlayer> {
                                       SvgPicture.asset('assets/icons/play.svg'),
                                 );
                               } else if (proccessingState !=
-                                  ap.ProcessingState.completed) {
+                                  ProcessingState.completed) {
                                 return GestureDetector(
                                   onTap: () {
                                     _audioPlayer.pause();
@@ -441,10 +287,9 @@ class _AudioPlayerState extends State<AudioPlayer> {
                           child: ValueListenableBuilder(
                             valueListenable: progressNotifier,
                             builder: (context, progress, child) {
-                              print(progress);
                               return RepaintBoundary(
                                 child: CustomPaint(
-                                  painter: CustomCircle(
+                                  painter: ProgressBorderPainter(
                                     progress: progress.toDouble(),
                                   ),
                                   child: GestureDetector(
@@ -484,8 +329,205 @@ class _AudioPlayerState extends State<AudioPlayer> {
       ),
     );
   }
+}
 
-  String _printDuration(Duration duration) {
+class _ImageAndTitle extends StatelessWidget {
+  const _ImageAndTitle({
+    required this.imageUrl,
+    required this.title,
+  });
+
+  final String imageUrl;
+  final String title;
+
+  BorderRadius get imageRadius => const BorderRadius.all(
+        Radius.circular(64),
+      );
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: SvgPicture.asset('assets/icons/arrow_down.svg'),
+          ),
+        ),
+        const SizedBox(height: 32),
+        SizedBox.square(
+          dimension: 260,
+          child: ClipRRect(
+            borderRadius: imageRadius,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.all(
+                  Radius.circular(64),
+                ),
+                color: Color(0xFF260E49),
+              ),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.contain,
+                placeholder: (context, url) =>
+                    ColoredBox(color: Colors.black.withOpacity(0.4)),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 24,
+            height: 28 / 24,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PlayerSlider extends StatelessWidget {
+  const _PlayerSlider({
+    required this.positionDataStream,
+    required this.onSeekPlayer,
+  });
+
+  final Stream<PositionData> positionDataStream;
+  final ValueChanged<Duration> onSeekPlayer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 14,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.4),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 7),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 7,
+                        height: 2,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 2,
+                            activeTrackColor: Colors.white,
+                            inactiveTrackColor: Colors.white.withOpacity(0),
+                            thumbColor: Colors.white,
+                            overlayColor: Colors.white.withOpacity(0.08),
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 7,
+                              disabledThumbRadius: 7,
+                              elevation: 0,
+                              pressedElevation: 0,
+                            ),
+                            trackShape: CustomTrackShape(),
+                          ),
+                          child: StreamBuilder(
+                            stream: positionDataStream,
+                            builder: (context, snapshot) {
+                              final positionData = snapshot.data;
+                              double sliderValue = 0;
+                              if (positionData != null) {
+                                if (positionData.duration != Duration.zero) {
+                                  sliderValue =
+                                      positionData.position.inMilliseconds /
+                                          positionData.duration.inMilliseconds;
+                                }
+                              }
+
+                              if (sliderValue > 1) {
+                                sliderValue = 1;
+                              }
+
+                              return Slider(
+                                value: sliderValue,
+                                onChanged: (position) {
+                                  late Duration newPosition;
+                                  if (positionData != null) {
+                                    if (positionData.duration !=
+                                        Duration.zero) {
+                                      newPosition = Duration(
+                                          milliseconds: (position *
+                                                  positionData
+                                                      .duration.inMilliseconds)
+                                              .toInt());
+                                    }
+                                  } else {
+                                    newPosition = Duration.zero;
+                                  }
+                                  onSeekPlayer(newPosition);
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        StreamBuilder(
+            stream: positionDataStream,
+            builder: (context, snapshot) {
+              final positionData = snapshot.data;
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _durationToTime(positionData?.position ?? Duration.zero),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      height: 18 / 14,
+                      color: Colors.white.withOpacity(0.65),
+                    ),
+                  ),
+                  Text(
+                    _durationToTime(positionData?.duration ?? Duration.zero),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      height: 18 / 14,
+                      color: Colors.white.withOpacity(0.65),
+                    ),
+                  ),
+                ],
+              );
+            }),
+      ],
+    );
+  }
+
+  String _durationToTime(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, "0");
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
@@ -535,10 +577,10 @@ class CustomTrackShape extends RoundedRectSliderTrackShape {
   }
 }
 
-class CustomCircle extends CustomPainter {
+class ProgressBorderPainter extends CustomPainter {
   final double progress;
 
-  CustomCircle({
+  ProgressBorderPainter({
     required this.progress,
   });
 
