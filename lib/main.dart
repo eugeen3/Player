@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 
@@ -94,6 +95,8 @@ class _AudioPlayerState extends State<AudioPlayer> {
         ),
       );
 
+  ValueNotifier<int> progressNotifier = ValueNotifier(0);
+
   @override
   void initState() {
     isFavourite = widget.isFavourite;
@@ -109,6 +112,7 @@ class _AudioPlayerState extends State<AudioPlayer> {
       ),
     ]);
     _audioPlayer.setAudioSource(_playlist);
+
     super.initState();
   }
 
@@ -434,10 +438,38 @@ class _AudioPlayerState extends State<AudioPlayer> {
                         ),
                         SizedBox.square(
                           dimension: 40,
-                          child: CustomPaint(
-                            painter: CustomCircle(
-                              progress: 95,
-                            ),
+                          child: ValueListenableBuilder(
+                            valueListenable: progressNotifier,
+                            builder: (context, progress, child) {
+                              print(progress);
+                              return RepaintBoundary(
+                                child: CustomPaint(
+                                  painter: CustomCircle(
+                                    progress: progress.toDouble(),
+                                  ),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Timer.periodic(
+                                          const Duration(milliseconds: 200),
+                                          (timer) {
+                                        if (progressNotifier.value >= 100) {
+                                          progressNotifier.value = 0;
+                                        }
+                                        progressNotifier.value =
+                                            progressNotifier.value + 1;
+                                      });
+                                    },
+                                    child: Center(
+                                      child: SvgPicture.asset(
+                                        'assets/icons/download.svg',
+                                        width: 24,
+                                        height: 24,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -530,7 +562,7 @@ class CustomCircle extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeWidth = strokeWidth
-        ..color = Colors.black;
+        ..color = Colors.white;
 
       final Path path = Path()..moveTo(width / 2, 0);
 
@@ -665,10 +697,18 @@ class CustomCircle extends CustomPainter {
       }
       progressToSubtract += progressInArc; //95
 
+      //Last half of line
+      if (progress > progressToSubtract) {
+        path.relativeLineTo(
+            (min(progress, progressInLine / 2) * (lineLength / 2)) /
+                (progressInLine / 2),
+            0);
+      }
+
       canvas.drawPath(path, paint);
     }
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
 }
