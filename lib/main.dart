@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
 Future<void> main() async {
@@ -34,6 +37,7 @@ class MyApp extends StatelessWidget {
         onRepeatTap: () {},
         onPlayTap: () {},
         onAudioEndTap: () {},
+        onCloseTap: () {},
         isFavourite: false,
       ),
     );
@@ -60,6 +64,7 @@ class PlayerScreen extends StatefulWidget {
     required this.onRepeatTap,
     required this.onPlayTap,
     required this.onAudioEndTap,
+    required this.onCloseTap,
     required this.isFavourite,
   });
 
@@ -70,6 +75,7 @@ class PlayerScreen extends StatefulWidget {
   final VoidCallback onRepeatTap;
   final VoidCallback onPlayTap;
   final VoidCallback onAudioEndTap;
+  final VoidCallback onCloseTap;
   final bool isFavourite;
 
   @override
@@ -77,11 +83,13 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
+  static const String kAudioDirectory = 'audio';
+
   late bool isFavourite;
   bool repeat = false;
   late AudioPlayer _audioPlayer;
 
-  late final AudioSource _playlist;
+  late AudioSource _playlist;
 
   Stream<PositionData> get _positionDataStream =>
       Rx.combineLatest2<Duration, Duration?, PositionData>(
@@ -93,25 +101,71 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ).asBroadcastStream();
 
-  ValueNotifier<int> progressNotifier = ValueNotifier(0);
+  final ValueNotifier<double> _progressNotifier = ValueNotifier(.0);
+  final ValueNotifier<bool> _isDownloadedNotifier = ValueNotifier(false);
 
   @override
   void initState() {
     isFavourite = widget.isFavourite;
     _audioPlayer = AudioPlayer();
-    _playlist = ConcatenatingAudioSource(children: [
-      AudioSource.uri(
-        Uri.parse(widget.auidoUrl),
-        tag: MediaItem(
-          id: '0',
-          title: widget.title,
-          artUri: Uri.parse(widget.imageUrl),
-        ),
-      ),
-    ]);
-    _audioPlayer.setAudioSource(_playlist);
+    _isDownloadedNotifier.addListener(() async {
+      if (_isDownloadedNotifier.value) {
+        final filePath =
+            await FileUtils.filePathFromUri(widget.auidoUrl, kAudioDirectory);
+        _playlist = ConcatenatingAudioSource(children: [
+          AudioSource.file(
+            filePath,
+            tag: MediaItem(
+              id: '0',
+              title: widget.title,
+              artUri: Uri.parse(widget.imageUrl),
+            ),
+          ),
+        ]);
+      } else {
+        _isDownloadedNotifier.value = false;
+        _playlist = ConcatenatingAudioSource(children: [
+          AudioSource.uri(
+            Uri.parse(widget.auidoUrl),
+            tag: MediaItem(
+              id: '0',
+              title: widget.title,
+              artUri: Uri.parse(widget.imageUrl),
+            ),
+          ),
+        ]);
+      }
 
+      final position = _audioPlayer.position;
+      await _audioPlayer.setAudioSource(_playlist, initialPosition: position);
+    });
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() async {
+    final filePath =
+        await FileUtils.filePathFromUri(widget.auidoUrl, kAudioDirectory);
+    if (FileUtils.isFileExists(filePath)) {
+      _isDownloadedNotifier.value = true;
+    } else {
+      _isDownloadedNotifier.value = false;
+      _playlist = ConcatenatingAudioSource(children: [
+        AudioSource.uri(
+          Uri.parse(widget.auidoUrl),
+          tag: MediaItem(
+            id: '0',
+            title: widget.title,
+            artUri: Uri.parse(widget.imageUrl),
+          ),
+        ),
+      ]);
+      await _audioPlayer.setAudioSource(_playlist);
+
+      _isDownloadedNotifier.value = false;
+    }
+
+    super.didChangeDependencies();
   }
 
   @override
@@ -154,6 +208,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   _ImageAndTitle(
                     imageUrl: widget.imageUrl,
                     title: widget.title,
+                    onCloseTap: widget.onCloseTap,
                   ),
                   const Spacer(),
                   _PlayerSlider(
@@ -283,40 +338,71 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               }),
                         ),
                         SizedBox.square(
-                          dimension: 40,
-                          child: ValueListenableBuilder(
-                            valueListenable: progressNotifier,
-                            builder: (context, progress, child) {
-                              return RepaintBoundary(
-                                child: CustomPaint(
-                                  painter: ProgressBorderPainter(
-                                    progress: progress.toDouble(),
-                                  ),
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      Timer.periodic(
-                                          const Duration(milliseconds: 200),
-                                          (timer) {
-                                        if (progressNotifier.value >= 100) {
-                                          progressNotifier.value = 0;
-                                        }
-                                        progressNotifier.value =
-                                            progressNotifier.value + 1;
-                                      });
-                                    },
-                                    child: Center(
-                                      child: SvgPicture.asset(
-                                        'assets/icons/download.svg',
-                                        width: 24,
-                                        height: 24,
+                            dimension: 40,
+                            child: ValueListenableBuilder(
+                              valueListenable: _isDownloadedNotifier,
+                              builder: (_, downloaded, __) => downloaded
+                                  ? GestureDetector(
+                                      onTap: () async {
+                                        await FileUtils.deleteFile(
+                                          widget.auidoUrl,
+                                          kAudioDirectory,
+                                        );
+                                        _isDownloadedNotifier.value = false;
+                                      },
+                                      child: Center(
+                                        child: SvgPicture.asset(
+                                          'assets/icons/trash_can.svg',
+                                        ),
                                       ),
+                                    )
+                                  : ValueListenableBuilder(
+                                      valueListenable: _progressNotifier,
+                                      builder: (_, progress, __) {
+                                        return RepaintBoundary(
+                                          child: CustomPaint(
+                                            painter: ProgressBorderPainter(
+                                              progress: progress,
+                                            ),
+                                            child: GestureDetector(
+                                              onTap: () async {
+                                                final audioFilePath =
+                                                    await FileUtils
+                                                        .filePathFromUri(
+                                                            widget.auidoUrl,
+                                                            kAudioDirectory);
+                                                final dio = Dio();
+                                                setState(() {
+                                                  _progressNotifier.value = 0.1;
+                                                });
+                                                dio.download(
+                                                  widget.auidoUrl,
+                                                  audioFilePath,
+                                                  onReceiveProgress:
+                                                      (count, total) {
+                                                    _progressNotifier.value =
+                                                        count / total * 100;
+                                                    if (count / total == 1) {
+                                                      _progressNotifier.value =
+                                                          0;
+                                                      _isDownloadedNotifier
+                                                          .value = true;
+                                                      setState(() {});
+                                                    }
+                                                  },
+                                                );
+                                              },
+                                              child: Center(
+                                                child: SvgPicture.asset(
+                                                  'assets/icons/download.svg',
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
+                            )),
                       ],
                     ),
                   ),
@@ -325,6 +411,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
             ),
           ),
+          if (_progressNotifier.value > 0 && _progressNotifier.value < 100)
+            const Positioned(
+              top: 62,
+              left: 0,
+              right: 0,
+              child: Align(
+                alignment: Alignment.center,
+                child: Center(child: LoadingPopup()),
+              ),
+            ),
         ],
       ),
     );
@@ -335,10 +431,12 @@ class _ImageAndTitle extends StatelessWidget {
   const _ImageAndTitle({
     required this.imageUrl,
     required this.title,
+    required this.onCloseTap,
   });
 
   final String imageUrl;
   final String title;
+  final VoidCallback onCloseTap;
 
   BorderRadius get imageRadius => const BorderRadius.all(
         Radius.circular(64),
@@ -351,7 +449,9 @@ class _ImageAndTitle extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Padding(
             padding: const EdgeInsets.only(left: 4),
-            child: SvgPicture.asset('assets/icons/arrow_down.svg'),
+            child: GestureDetector(
+                onTap: () => onCloseTap(),
+                child: SvgPicture.asset('assets/icons/arrow_down.svg')),
           ),
         ),
         const SizedBox(height: 32),
@@ -753,4 +853,106 @@ class ProgressBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => true;
+}
+
+class LoadingPopup extends StatefulWidget {
+  const LoadingPopup({super.key});
+
+  @override
+  State<LoadingPopup> createState() => _LoadingPopupState();
+}
+
+class _LoadingPopupState extends State<LoadingPopup>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _animationController.repeat();
+    _animation = Tween(begin: 0.0, end: 1.0).animate(_animationController);
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 192,
+      height: 48,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              RepaintBoundary(
+                child: RotationTransition(
+                  turns: _animation,
+                  child: SizedBox.square(
+                      dimension: 24,
+                      child: Center(
+                          child: Image.asset('assets/icons/loader.png'))),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Загружаем практику',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 18 / 14,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+abstract class FileUtils {
+  static Future<String> filePathFromUri(
+      String uri, String targetDirectory) async {
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final endDirectory =
+        Directory('${documentsDirectory.path}/$targetDirectory');
+    final fileName = _getFileNameByType(uri);
+
+    if (!endDirectory.existsSync()) {
+      endDirectory.createSync();
+    }
+
+    final filePath = '${endDirectory.path}/$fileName';
+    return filePath;
+  }
+
+  static Future<void> deleteFile(String uri, String targetDirectory) async {
+    final filePath = await filePathFromUri(uri, targetDirectory);
+    await File(filePath).delete();
+  }
+
+  static bool isFileExists(String path) {
+    final isFileExists = File(path).existsSync();
+    return isFileExists;
+  }
+
+  static String _getFileNameByType(String uri) {
+    final linkWithType = uri.substring(0, uri.lastIndexOf('.mp3'));
+    return (linkWithType.substring(linkWithType.lastIndexOf('/')))
+        .replaceAll('/', '');
+  }
 }
