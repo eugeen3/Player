@@ -3,9 +3,15 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:just_audio/just_audio.dart' as ap;
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:rxdart/rxdart.dart';
 
-void main() {
+Future<void> main() async {
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.ryanheise.bg_demo.channel.audio',
+    androidNotificationChannelName: 'Audio playback',
+    androidNotificationOngoing: true,
+  );
   runApp(const MyApp());
 }
 
@@ -71,6 +77,8 @@ class _AudioPlayerState extends State<AudioPlayer> {
   bool repeat = false;
   late ap.AudioPlayer _audioPlayer;
 
+  late final _playlist;
+
   BorderRadius get imageRadius => const BorderRadius.all(
         Radius.circular(64),
       );
@@ -88,7 +96,18 @@ class _AudioPlayerState extends State<AudioPlayer> {
   @override
   void initState() {
     isFavourite = widget.isFavourite;
-    _audioPlayer = ap.AudioPlayer()..setUrl(widget.auidoUrl);
+    _audioPlayer = ap.AudioPlayer();
+    _playlist = ap.ConcatenatingAudioSource(children: [
+      ap.AudioSource.uri(
+        Uri.parse(widget.auidoUrl),
+        tag: MediaItem(
+          id: '0',
+          title: widget.title,
+          artUri: Uri.parse(widget.imageUrl),
+        ),
+      ),
+    ]);
+    _audioPlayer.setAudioSource(_playlist);
     super.initState();
   }
 
