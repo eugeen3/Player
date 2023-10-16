@@ -39,6 +39,23 @@ class MyApp extends StatelessWidget {
         onAudioEndTap: () {},
         onCloseTap: () {},
         isFavourite: false,
+        closeIcon: SvgPicture.asset('assets/icons/arrow_down.svg'),
+        downloadIcon: SvgPicture.asset('assets/icons/download.svg'),
+        endTrackIcon: SvgPicture.asset('assets/icons/end_track.svg'),
+        addToFavouritesIcon: const Icon(
+          Icons.favorite,
+          color: Colors.white,
+        ),
+        removeFromFavouritesIcon: const Icon(
+          Icons.favorite_outline,
+          color: Colors.white,
+        ),
+        loaderIcon: Image.asset('assets/icons/loader.png'),
+        pauseIcon: SvgPicture.asset('assets/icons/pause.svg'),
+        playIcon: SvgPicture.asset('assets/icons/play.svg'),
+        repeatOnIcon: SvgPicture.asset('assets/icons/repeat_on.svg'),
+        repeatOffIcon: SvgPicture.asset('assets/icons/repeat_off.svg'),
+        trashCanIcon: SvgPicture.asset('assets/icons/trash_can.svg'),
       ),
     );
   }
@@ -66,6 +83,17 @@ class PlayerScreen extends StatefulWidget {
     required this.onAudioEndTap,
     required this.onCloseTap,
     required this.isFavourite,
+    required this.closeIcon,
+    required this.downloadIcon,
+    required this.endTrackIcon,
+    required this.addToFavouritesIcon,
+    required this.removeFromFavouritesIcon,
+    required this.loaderIcon,
+    required this.pauseIcon,
+    required this.playIcon,
+    required this.repeatOnIcon,
+    required this.repeatOffIcon,
+    required this.trashCanIcon,
   });
 
   final String auidoUrl;
@@ -77,6 +105,17 @@ class PlayerScreen extends StatefulWidget {
   final VoidCallback onAudioEndTap;
   final VoidCallback onCloseTap;
   final bool isFavourite;
+  final Widget closeIcon;
+  final Widget downloadIcon;
+  final Widget endTrackIcon;
+  final Widget addToFavouritesIcon;
+  final Widget removeFromFavouritesIcon;
+  final Widget loaderIcon;
+  final Widget pauseIcon;
+  final Widget playIcon;
+  final Widget repeatOnIcon;
+  final Widget repeatOffIcon;
+  final Widget trashCanIcon;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -209,6 +248,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     imageUrl: widget.imageUrl,
                     title: widget.title,
                     onCloseTap: widget.onCloseTap,
+                    closeIcon: widget.closeIcon,
                   ),
                   const Spacer(),
                   _PlayerSlider(
@@ -232,14 +272,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             },
                             child: Center(
                               child: isFavourite
-                                  ? const Icon(
-                                      Icons.favorite,
-                                      color: Colors.white,
-                                    )
-                                  : const Icon(
-                                      Icons.favorite_outline,
-                                      color: Colors.white,
-                                    ),
+                                  ? widget.addToFavouritesIcon
+                                  : widget.removeFromFavouritesIcon,
                             ),
                           ),
                         ),
@@ -264,10 +298,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               ),
                               child: Center(
                                 child: repeat
-                                    ? SvgPicture.asset(
-                                        'assets/icons/repeat_on.svg')
-                                    : SvgPicture.asset(
-                                        'assets/icons/repeat_off.svg'),
+                                    ? widget.repeatOnIcon
+                                    : widget.repeatOffIcon,
                               ),
                             ),
                           ),
@@ -286,8 +318,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   onTap: () {
                                     _audioPlayer.play();
                                   },
-                                  child:
-                                      SvgPicture.asset('assets/icons/play.svg'),
+                                  child: widget.playIcon,
                                 );
                               } else if (proccessingState !=
                                   ProcessingState.completed) {
@@ -295,8 +326,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   onTap: () {
                                     _audioPlayer.pause();
                                   },
-                                  child: SvgPicture.asset(
-                                      'assets/icons/pause.svg'),
+                                  child: widget.pauseIcon,
                                 );
                               }
                               return GestureDetector(
@@ -304,8 +334,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   _audioPlayer.seek(Duration.zero);
                                   _audioPlayer.play();
                                 },
-                                child:
-                                    SvgPicture.asset('assets/icons/play.svg'),
+                                child: widget.playIcon,
                               );
                             },
                           ),
@@ -329,9 +358,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                       shape: BoxShape.circle,
                                     ),
                                     child: Center(
-                                      child: SvgPicture.asset(
-                                        'assets/icons/end_track.svg',
-                                      ),
+                                      child: widget.endTrackIcon,
                                     ),
                                   ),
                                 );
@@ -351,9 +378,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                         _isDownloadedNotifier.value = false;
                                       },
                                       child: Center(
-                                        child: SvgPicture.asset(
-                                          'assets/icons/trash_can.svg',
-                                        ),
+                                        child: widget.trashCanIcon,
                                       ),
                                     )
                                   : ValueListenableBuilder(
@@ -393,9 +418,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                                 );
                                               },
                                               child: Center(
-                                                child: SvgPicture.asset(
-                                                  'assets/icons/download.svg',
-                                                ),
+                                                child: widget.downloadIcon,
                                               ),
                                             ),
                                           ),
@@ -412,13 +435,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ),
           ),
           if (_progressNotifier.value > 0 && _progressNotifier.value < 100)
-            const Positioned(
+            Positioned(
               top: 62,
               left: 0,
               right: 0,
               child: Align(
                 alignment: Alignment.center,
-                child: Center(child: LoadingPopup()),
+                child: Center(
+                    child: LoadingPopup(
+                  loaderIcon: widget.loaderIcon,
+                )),
               ),
             ),
         ],
@@ -432,11 +458,13 @@ class _ImageAndTitle extends StatelessWidget {
     required this.imageUrl,
     required this.title,
     required this.onCloseTap,
+    required this.closeIcon,
   });
 
   final String imageUrl;
   final String title;
   final VoidCallback onCloseTap;
+  final Widget closeIcon;
 
   BorderRadius get imageRadius => const BorderRadius.all(
         Radius.circular(64),
@@ -449,9 +477,7 @@ class _ImageAndTitle extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Padding(
             padding: const EdgeInsets.only(left: 4),
-            child: GestureDetector(
-                onTap: () => onCloseTap(),
-                child: SvgPicture.asset('assets/icons/arrow_down.svg')),
+            child: GestureDetector(onTap: () => onCloseTap(), child: closeIcon),
           ),
         ),
         const SizedBox(height: 32),
@@ -856,7 +882,9 @@ class ProgressBorderPainter extends CustomPainter {
 }
 
 class LoadingPopup extends StatefulWidget {
-  const LoadingPopup({super.key});
+  const LoadingPopup({super.key, required this.loaderIcon});
+
+  final Widget loaderIcon;
 
   @override
   State<LoadingPopup> createState() => _LoadingPopupState();
@@ -902,9 +930,9 @@ class _LoadingPopupState extends State<LoadingPopup>
                 child: RotationTransition(
                   turns: _animation,
                   child: SizedBox.square(
-                      dimension: 24,
-                      child: Center(
-                          child: Image.asset('assets/icons/loader.png'))),
+                    dimension: 24,
+                    child: Center(child: widget.loaderIcon),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
