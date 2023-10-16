@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -431,8 +432,13 @@ class _AudioPlayerState extends State<AudioPlayer> {
                                 );
                               }),
                         ),
-                        const SizedBox.square(
+                        SizedBox.square(
                           dimension: 40,
+                          child: CustomPaint(
+                            painter: CustomCircle(
+                              progress: 95,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -495,4 +501,174 @@ class CustomTrackShape extends RoundedRectSliderTrackShape {
         isEnabled: isEnabled,
         additionalActiveTrackHeight: 0);
   }
+}
+
+class CustomCircle extends CustomPainter {
+  final double progress;
+
+  CustomCircle({
+    required this.progress,
+  });
+
+  static const lineLength = 14;
+  static const progressInLine = 10;
+  static const progressInArc = 15;
+
+  static const degrees90 = pi / 2;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.height != size.width) {
+      throw Exception('Widget must have equal sides');
+    }
+    if (progress > 0) {
+      final double width = size.width;
+      final double height = size.height;
+
+      const strokeWidth = 1.0;
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = strokeWidth
+        ..color = Colors.black;
+
+      final Path path = Path()..moveTo(width / 2, 0);
+
+      int progressToSubtract = 0;
+
+      //First half of line
+      path.relativeLineTo(
+          (min(progress, progressInLine / 2) * (lineLength / 2)) /
+              (progressInLine / 2),
+          0);
+      progressToSubtract = 5;
+
+      //First rounded angle
+      if (progress > progressToSubtract) {
+        double angleMultiplyer = progressInArc.toDouble();
+        if (progress < progressInArc + progressInLine / 2) {
+          angleMultiplyer = progress - progressToSubtract.toDouble();
+        }
+
+        path.addArc(
+          Rect.fromLTRB(
+            width / 2 - (lineLength / 2),
+            0,
+            width,
+            height / 2 + (lineLength / 2),
+          ),
+          3 * degrees90,
+          (degrees90 * angleMultiplyer) / progressInArc,
+        );
+      }
+      progressToSubtract += progressInArc; //20
+
+      //Second line
+      if (progress > progressToSubtract) {
+        path.relativeLineTo(
+          0,
+          (min(
+                    progressInLine,
+                    progress - progressToSubtract,
+                  ) *
+                  lineLength) /
+              progressInLine,
+        );
+      }
+      progressToSubtract += progressInLine; //30
+
+      //Second rounded angle
+      if (progress > progressToSubtract) {
+        double angleMultiplyer = progressInArc.toDouble();
+        if (progress < progressToSubtract + progressInArc) {
+          angleMultiplyer = progress - progressToSubtract.toDouble();
+        }
+
+        path.addArc(
+          Rect.fromLTRB(
+            lineLength.toDouble(),
+            lineLength.toDouble(),
+            width,
+            height,
+          ),
+          0,
+          (degrees90 * angleMultiplyer) / progressInArc,
+        );
+      }
+      progressToSubtract += progressInArc; //45
+
+      //Third line
+      if (progress > progressToSubtract) {
+        path.relativeLineTo(
+          -(min(
+                    progressInLine,
+                    progress - progressToSubtract,
+                  ) *
+                  lineLength) /
+              progressInLine,
+          0,
+        );
+      }
+      progressToSubtract += progressInLine; //55
+
+      //Third rounded angle
+      if (progress > progressToSubtract) {
+        double angleMultiplyer = progressInArc.toDouble();
+        if (progress < progressToSubtract + progressInArc) {
+          angleMultiplyer = progress - progressToSubtract.toDouble();
+        }
+
+        path.addArc(
+          Rect.fromLTRB(
+            0,
+            lineLength.toDouble(),
+            lineLength * 2,
+            height,
+          ),
+          degrees90,
+          (degrees90 * angleMultiplyer) / progressInArc,
+        );
+      }
+      progressToSubtract += progressInArc; //70
+
+      //Fourth line
+      if (progress > progressToSubtract) {
+        path.relativeLineTo(
+          0,
+          -(min(
+                    progressInLine,
+                    progress - progressToSubtract,
+                  ) *
+                  lineLength) /
+              progressInLine,
+        );
+      }
+      progressToSubtract += progressInLine; //80
+
+      //Fourth rounded angle
+      if (progress > progressToSubtract) {
+        double angleMultiplyer = progressInArc.toDouble();
+        if (progress < progressToSubtract + progressInArc) {
+          angleMultiplyer = progress - progressToSubtract.toDouble();
+        }
+
+        path.addArc(
+          const Rect.fromLTRB(
+            0,
+            0,
+            lineLength * 2,
+            lineLength * 2,
+          ),
+          degrees90 * 2,
+          (degrees90 * angleMultiplyer) / progressInArc,
+        );
+      }
+      progressToSubtract += progressInArc; //95
+
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
